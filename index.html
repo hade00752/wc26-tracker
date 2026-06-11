@@ -247,12 +247,17 @@ async function loadFromServer() {
 }
 
 function showSetupWarning() {
-  document.querySelector('main').innerHTML =
-    `<div style="padding:48px 20px;text-align:center;color:#c8a800">
-      <div style="font-size:2rem;margin-bottom:12px">⚙️</div>
-      <div style="font-size:1.1rem;font-weight:700;margin-bottom:8px">App not configured yet</div>
-      <div style="color:#5a8a5a;font-size:.9rem">Run <code style="background:#0c170c;padding:2px 6px;border-radius:4px">python3 setup.py</code> to connect cloud storage.</div>
+  // overlay — never touch main's children so buildAll() still works
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;inset:0;background:#060c06;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center';
+  el.innerHTML = `
+    <div style="font-size:2.5rem">⚙️</div>
+    <div style="font-size:1.1rem;font-weight:700;color:#c8a800">App not configured yet</div>
+    <div style="color:#5a8a5a;font-size:.88rem;max-width:340px">
+      Run <code style="background:#0c170c;padding:2px 7px;border-radius:4px;color:#7abe7a">python3 setup.py</code>
+      to connect cloud storage, then redeploy.
     </div>`;
+  document.body.appendChild(el);
 }
 
 function save() {
@@ -297,7 +302,9 @@ function go(name) {
   document.querySelectorAll('.tab').forEach((el,i) =>
     el.classList.toggle('on', TAB_NAMES[i] === name));
   document.querySelectorAll('.page').forEach(el => el.classList.remove('on'));
-  document.getElementById('pg-'+name).classList.add('on');
+  const pg = document.getElementById('pg-'+name);
+  if (!pg) return;
+  pg.classList.add('on');
   if (name === 'leaderboard') buildLeaderboard();
 }
 
@@ -316,7 +323,9 @@ const norm = s => String(s||'').trim().toLowerCase();
 // ─── PLAYERS PAGE ─────────────────────────────────────────────────────────────
 
 function buildPlayers() {
-  document.getElementById('pg-players').innerHTML = `
+  const el = document.getElementById('pg-players');
+  if (!el) return;
+  el.innerHTML = `
     <div class="ptitle">Player Setup</div>
     <div class="players-grid">${D.players.map((p,i) => playerCard(p,i)).join('')}</div>`;
 }
@@ -357,7 +366,9 @@ function playerCard(p, i) {
 // ─── GROUPS PAGE ──────────────────────────────────────────────────────────────
 
 function buildGroups() {
-  document.getElementById('pg-groups').innerHTML = `
+  const el = document.getElementById('pg-groups');
+  if (!el) return;
+  el.innerHTML = `
     <div class="ptitle">Group Stage — Groups A to L</div>
     <div class="groups-grid">${GROUPS.map(g => groupCard(g)).join('')}</div>`;
 }
@@ -459,7 +470,9 @@ function reloadStandings(g) {
 // ─── BRACKET PAGE ─────────────────────────────────────────────────────────────
 
 function buildBracket() {
-  document.getElementById('pg-bracket').innerHTML = `
+  const el = document.getElementById('pg-bracket');
+  if (!el) return;
+  el.innerHTML = `
     <div class="ptitle">Knockout Stage</div>
     ${ROUNDS.map(r => roundSection(r)).join('')}
     <div style="margin-top:26px">
