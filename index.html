@@ -243,9 +243,10 @@ const BIN_ID = 'f0b7553b1c8aa3465e6a522f9e05cbab'; // set by setup.py
 // ─── PERSISTENCE (GitHub Gist) ────────────────────────────────────────────────
 
 const EDIT_TOKEN = new URLSearchParams(location.search).get('token') || '';
-const IS_EDIT    = !!EDIT_TOKEN;
+const IS_EDIT    = !!EDIT_TOKEN || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 const GIST_API   = `https://api.github.com/gists/${BIN_ID}`;
 const LS_KEY     = `wc26_${BIN_ID}`;
+const SESS_KEY   = `wc26_sess_${BIN_ID}`;
 
 // ─── DEFAULT DATA (hardcoded so it's always there) ───────────────────────────
 const DEFAULT_DATA = {
@@ -289,15 +290,37 @@ let D = JSON.parse(JSON.stringify(DEFAULT_DATA)); // deep clone so defaults are 
 
 async function loadFromServer() {
   if (BIN_ID === '__BIN_ID__') { showSetupWarning(); return; }
-  // localStorage is the source of truth — fast, reliable, always works
+  // Edit mode: localStorage first (instant, no network)
+  if (EDIT_TOKEN || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) { const j = JSON.parse(raw); if (j?.players) { D = j; return; } }
+    } catch(_){}
+  }
+  // View mode (or no localStorage): load from Gist, cache in sessionStorage to avoid rate limits
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const j = JSON.parse(raw);
-      if (j?.players) { D = j; return; }
+    const cached = sessionStorage.getItem(SESS_KEY);
+    if (cached) { const j = JSON.parse(cached); if (j?.players) { D = j; return; } }
+  } catch(_){}
+  try {
+    const headers = {'Accept':'application/vnd.github+json'};
+    if (EDIT_TOKEN) headers['Authorization'] = `Bearer ${EDIT_TOKEN}`;
+    const res = await fetch(GIST_API, {headers});
+    if (res.ok) {
+      const gist = await res.json();
+      const raw  = gist.files?.['data.json']?.content;
+      if (raw) {
+        const j = JSON.parse(raw);
+        if (j?.players) {
+          D = j;
+          try { sessionStorage.setItem(SESS_KEY, raw); } catch(_){}
+          try { localStorage.setItem(LS_KEY, raw); } catch(_){}
+          return;
+        }
+      }
     }
   } catch(_){}
-  // Nothing in localStorage — keep the hardcoded defaults already in D
+  // Nothing anywhere — keep the hardcoded defaults already in D
 }
 
 function showSetupWarning() {
@@ -314,11 +337,13 @@ function showSetupWarning() {
   document.body.appendChild(el);
 }
 
-// Save: localStorage instantly (never fails), then Gist in background
+// Save: localStorage immediately (always), then background Gist sync if we have a token
 function save() {
-  if (!IS_EDIT) return;
+  if (!IS_EDIT) return; // view mode — never mutate data
   try { localStorage.setItem(LS_KEY, JSON.stringify(D)); } catch(_){}
+  try { sessionStorage.setItem(SESS_KEY, JSON.stringify(D)); } catch(_){}
   flash('✓ Saved', false);
+  if (!EDIT_TOKEN) return; // localhost with no token — localStorage only, no cloud sync
   clearTimeout(save._cloud);
   save._cloud = setTimeout(async () => {
     const btn = document.getElementById('sync-btn');
