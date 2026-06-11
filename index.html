@@ -231,7 +231,7 @@ const GIST_API   = `https://api.github.com/gists/${BIN_ID}`;
 let D = fresh();
 
 async function loadFromServer() {
-  if (BIN_ID === 'f0b7553b1c8aa3465e6a522f9e05cbab') { showSetupWarning(); return; }
+  if (BIN_ID === '__BIN_ID__') { showSetupWarning(); return; }
   try {
     const res = await fetch(GIST_API, {
       headers: {'Accept': 'application/vnd.github+json'}
