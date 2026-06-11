@@ -247,30 +247,57 @@ const IS_EDIT    = !!EDIT_TOKEN;
 const GIST_API   = `https://api.github.com/gists/${BIN_ID}`;
 const LS_KEY     = `wc26_${BIN_ID}`;
 
-let D = fresh();
+// ─── DEFAULT DATA (hardcoded so it's always there) ───────────────────────────
+const DEFAULT_DATA = {
+  players: [
+    { name: 'Callum', teams: ['', '', ''], p: {
+      winner: 'France', topScorer: 'Mbappe', topAssist: 'Olise',
+      bestPlayer: 'Mbappe', darkHorse: 'Senegal', goldenGlove: 'Unai Simon',
+      flopNation: 'Argentina', totalGoals: '258'
+    }},
+    { name: '', teams: ['', '', ''], p: { winner:'', topScorer:'', topAssist:'', bestPlayer:'', darkHorse:'', goldenGlove:'', flopNation:'', totalGoals:'' }},
+    { name: '', teams: ['', '', ''], p: { winner:'', topScorer:'', topAssist:'', bestPlayer:'', darkHorse:'', goldenGlove:'', flopNation:'', totalGoals:'' }},
+    { name: '', teams: ['', '', ''], p: { winner:'', topScorer:'', topAssist:'', bestPlayer:'', darkHorse:'', goldenGlove:'', flopNation:'', totalGoals:'' }},
+    { name: '', teams: ['', '', ''], p: { winner:'', topScorer:'', topAssist:'', bestPlayer:'', darkHorse:'', goldenGlove:'', flopNation:'', totalGoals:'' }},
+    { name: '', teams: ['', '', ''], p: { winner:'', topScorer:'', topAssist:'', bestPlayer:'', darkHorse:'', goldenGlove:'', flopNation:'', totalGoals:'' }},
+  ],
+  groups: {
+    A: { teams: ['Mexico','South Africa','South Korea (Korea Republic)','Czechia (Czech Republic)'], matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    B: { teams: ['Canada','Switzerland','Qatar','Bosnia & Herzegovina'],                              matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    C: { teams: ['Brazil','Morocco','Haiti','Scotland'],                                              matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    D: { teams: ['United States','Paraguay','Australia','Türkiye (Turkey)'],                          matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    E: { teams: ['Germany','Curaçao','Ivory Coast (Côte d\'Ivoire)','Ecuador'],                       matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    F: { teams: ['Netherlands','Japan','Tunisia','Sweden'],                                           matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    G: { teams: ['Belgium','Egypt','Iran (IR Iran)','New Zealand'],                                   matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    H: { teams: ['Spain','Cape Verde (Cabo Verde)','Saudi Arabia','Uruguay'],                         matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    I: { teams: ['France','Senegal','Norway','Iraq'],                                                 matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    J: { teams: ['Argentina','Algeria','Austria','Jordan'],                                           matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    K: { teams: ['Portugal','Uzbekistan','Colombia','DR Congo (Congo DR)'],                           matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+    L: { teams: ['England','Croatia','Ghana','Panama'],                                               matches: MPAIRS.map(([h,a])=>({h,a,hs:'',as:''})) },
+  },
+  ko: {
+    r32:   Array.from({length:16}, mkMatch),
+    r16:   Array.from({length:8},  mkMatch),
+    qf:    Array.from({length:4},  mkMatch),
+    sf:    Array.from({length:2},  mkMatch),
+    final: Array.from({length:1},  mkMatch),
+    champion: '',
+  },
+};
+
+let D = JSON.parse(JSON.stringify(DEFAULT_DATA)); // deep clone so defaults are never mutated
 
 async function loadFromServer() {
   if (BIN_ID === '__BIN_ID__') { showSetupWarning(); return; }
-  let fromGist = false;
+  // localStorage is the source of truth — fast, reliable, always works
   try {
-    const res = await fetch(GIST_API, {headers:{'Accept':'application/vnd.github+json'}});
-    if (res.ok) {
-      const gist = await res.json();
-      const raw  = gist.files?.['data.json']?.content;
-      if (raw) {
-        const json = JSON.parse(raw);
-        if (json?.players) { D = json; fromGist = true; }
-      }
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const j = JSON.parse(raw);
+      if (j?.players) { D = j; return; }
     }
   } catch(_){}
-  if (!fromGist) {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) { const j = JSON.parse(raw); if (j?.players) D = j; }
-    } catch(_){}
-  } else {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(D)); } catch(_){}
-  }
+  // Nothing in localStorage — keep the hardcoded defaults already in D
 }
 
 function showSetupWarning() {
