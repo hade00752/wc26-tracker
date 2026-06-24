@@ -580,11 +580,15 @@ function reloadStandings(g) {
 
 // ─── BRACKET PAGE ─────────────────────────────────────────────────────────────
 
+// FIFA 26 WC match numbers for each R32 slot (matches 73–88 in order)
+const R32_MATCH_NUMS = [73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88];
+
 function buildBracket() {
   const el = document.getElementById('pg-bracket');
   if (!el) return;
   el.innerHTML = `
     <div class="ptitle">Knockout Stage</div>
+    ${IS_EDIT ? `<div style="margin-bottom:16px"><button class="btn btn-gold" onclick="seedBracket()">⚡ Seed R32 from Groups</button></div>` : ''}
     ${ROUNDS.map(r => roundSection(r)).join('')}
     <div style="margin-top:26px">
       <div class="round-hd">Champion <span class="chip">+40 pts</span></div>
@@ -609,9 +613,10 @@ function roundSection(r) {
 }
 
 function bracketMatch(rk, m, mi) {
+  const lbl = rk === 'r32' ? `Match ${R32_MATCH_NUMS[mi]}` : `Match ${mi+1}`;
   return `
   <div class="bmatch">
-    <div class="blbl">Match ${mi+1}</div>
+    <div class="blbl">${lbl}</div>
     <div class="brow">
       <div class="bteam">
         <input type="text" value="${h(m.h)}" placeholder="Team A"
@@ -633,6 +638,94 @@ function bracketMatch(rk, m, mi) {
       </div>
     </div>
   </div>`;
+}
+
+// ─── BRACKET SEEDING ─────────────────────────────────────────────────────────
+
+function computeGroupStandings(g) {
+  const grp = D.groups[g];
+  const stats = grp.teams.map((name, ti) => ({name, ti, w:0, d:0, l:0, gf:0, ga:0}));
+  for (const m of grp.matches) {
+    if (m.hs===''||m.hs==null||m.as===''||m.as==null) continue;
+    const hs = +m.hs, as = +m.as;
+    stats[m.h].gf += hs; stats[m.h].ga += as;
+    stats[m.a].gf += as; stats[m.a].ga += hs;
+    if (hs > as)      { stats[m.h].w++; stats[m.a].l++; }
+    else if (hs < as) { stats[m.a].w++; stats[m.h].l++; }
+    else              { stats[m.h].d++; stats[m.a].d++; }
+  }
+  return stats
+    .filter(s => s.name.trim())
+    .map(s => ({...s, pts: s.w*3+s.d, gd: s.gf-s.ga}))
+    .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+}
+
+function seedBracket() {
+  if (!IS_EDIT) return;
+
+  const std = {};
+  for (const g of GROUPS) std[g] = computeGroupStandings(g);
+
+  const w = g => std[g][0]?.name || '';
+  const r = g => std[g][1]?.name || '';
+
+  // Collect 3rd-place teams from all 12 groups, ranked by pts → GD → GF
+  const thirds = GROUPS
+    .map(g => std[g][2] ? {...std[g][2], group: g} : null)
+    .filter(Boolean)
+    .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+  const top8 = thirds.slice(0, 8);
+
+  // Eligible groups for each of the 8 third-place bracket slots (matches 74,77,79,80,81,82,85,87)
+  const thirdSlotGroups = ['ABCDF','CDFGH','CEFHI','EHIJK','BEFIJ','AEHIJ','EFGIJ','DEIJL'];
+  const assignedThird   = new Array(8).fill('');
+  const pool    = [...top8];
+  const pending = new Set([0,1,2,3,4,5,6,7]);
+
+  // Most-constrained-first greedy assignment
+  while (pending.size > 0) {
+    let pick = -1, minCount = Infinity;
+    for (const i of pending) {
+      const c = pool.filter(t => thirdSlotGroups[i].includes(t.group)).length;
+      if (c < minCount) { minCount = c; pick = i; }
+    }
+    const eligible = pool.filter(t => thirdSlotGroups[pick].includes(t.group));
+    if (eligible.length) {
+      assignedThird[pick] = eligible[0].name;
+      pool.splice(pool.indexOf(eligible[0]), 1);
+    }
+    pending.delete(pick);
+  }
+
+  const t = i => assignedThird[i];
+
+  // R32 seeding — matches 73–88 mapped to r32 indices 0–15
+  const seeding = [
+    { h: r('A'), a: r('B') }, // 73: A 2nd vs B 2nd
+    { h: w('E'), a: t(0)   }, // 74: E 1st (Germany) vs A/B/C/D/F 3rd
+    { h: w('F'), a: r('C') }, // 75: F 1st vs C 2nd
+    { h: w('C'), a: r('F') }, // 76: C 1st vs F 2nd
+    { h: w('I'), a: t(1)   }, // 77: I 1st vs C/D/F/G/H 3rd
+    { h: r('E'), a: r('I') }, // 78: E 2nd vs I 2nd
+    { h: w('A'), a: t(2)   }, // 79: A 1st (Mexico) vs C/E/F/H/I 3rd
+    { h: w('L'), a: t(3)   }, // 80: L 1st vs E/H/I/J/K 3rd
+    { h: w('D'), a: t(4)   }, // 81: D 1st (USA) vs B/E/F/I/J 3rd
+    { h: w('G'), a: t(5)   }, // 82: G 1st vs A/E/H/I/J 3rd
+    { h: r('K'), a: r('L') }, // 83: K 2nd vs L 2nd
+    { h: w('H'), a: r('J') }, // 84: H 1st vs J 2nd
+    { h: w('B'), a: t(6)   }, // 85: B 1st vs E/F/G/I/J 3rd
+    { h: w('J'), a: r('H') }, // 86: J 1st (Argentina) vs H 2nd
+    { h: w('K'), a: t(7)   }, // 87: K 1st vs D/E/I/J/L 3rd
+    { h: r('D'), a: r('G') }, // 88: D 2nd vs G 2nd
+  ];
+
+  seeding.forEach((s, i) => {
+    D.ko.r32[i] = {h: s.h, a: s.a, hs: '', as: ''};
+  });
+
+  save();
+  buildBracket();
+  flash('✓ R32 bracket seeded from group results', false);
 }
 
 // ─── POINTS CALCULATION ───────────────────────────────────────────────────────
