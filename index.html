@@ -619,25 +619,79 @@ function bracketMatch(rk, m, mi) {
     <div class="blbl">${lbl}</div>
     <div class="brow">
       <div class="bteam">
-        <input type="text" value="${h(m.h)}" placeholder="Team A"
+        <input id="ko-${rk}-${mi}-h" type="text" value="${h(m.h)}" placeholder="Team A"
           oninput="D.ko['${rk}'][${mi}].h=this.value;save()">
       </div>
       <div class="bscore">
-        <input type="number" min="0" max="99" value="${h(m.hs)}" placeholder="-"
-          oninput="D.ko['${rk}'][${mi}].hs=this.value===''?'':+this.value;save()">
+        <input id="ko-${rk}-${mi}-hs" type="text" value="${h(m.hs)}" placeholder="-"
+          oninput="D.ko['${rk}'][${mi}].hs=this.value;onKOScore('${rk}',${mi})">
       </div>
     </div>
     <div class="brow">
       <div class="bteam">
-        <input type="text" value="${h(m.a)}" placeholder="Team B"
+        <input id="ko-${rk}-${mi}-a" type="text" value="${h(m.a)}" placeholder="Team B"
           oninput="D.ko['${rk}'][${mi}].a=this.value;save()">
       </div>
       <div class="bscore">
-        <input type="number" min="0" max="99" value="${h(m.as)}" placeholder="-"
-          oninput="D.ko['${rk}'][${mi}].as=this.value===''?'':+this.value;save()">
+        <input id="ko-${rk}-${mi}-as" type="text" value="${h(m.as)}" placeholder="-"
+          oninput="D.ko['${rk}'][${mi}].as=this.value;onKOScore('${rk}',${mi})">
       </div>
     </div>
   </div>`;
+}
+
+// ─── KO PROPAGATION ──────────────────────────────────────────────────────────
+
+// Returns 'h', 'a', or null. Scores like "1E" mean that side won on penalties.
+function getKOWinner(m) {
+  const hs = String(m.hs ?? ''), as = String(m.as ?? '');
+  if (!hs && !as) return null;
+  if (/[Ee]/.test(hs)) return 'h';
+  if (/[Ee]/.test(as)) return 'a';
+  const hg = parseInt(hs), ag = parseInt(as);
+  if (isNaN(hg) || isNaN(ag)) return null;
+  if (hg > ag) return 'h';
+  if (ag > hg) return 'a';
+  return null;
+}
+
+// Derive all subsequent rounds from current scores, in-place on D.ko.
+function propagateKO() {
+  const chain = [
+    {from:'r32', to:'r16'},
+    {from:'r16', to:'qf'},
+    {from:'qf',  to:'sf'},
+    {from:'sf',  to:'final'},
+  ];
+  for (const {from, to} of chain) {
+    const src = D.ko[from];
+    const dst = D.ko[to];
+    for (let i = 0; i < src.length; i++) {
+      const w = getKOWinner(src[i]);
+      const team = w === 'h' ? src[i].h : w === 'a' ? src[i].a : '';
+      const dstIdx = Math.floor(i / 2);
+      const slot   = i % 2 === 0 ? 'h' : 'a';
+      dst[dstIdx][slot] = team;
+    }
+  }
+}
+
+// Called on every score keypress: propagate then update team-name inputs in later rounds.
+function onKOScore(rk, mi) {
+  save();
+  propagateKO();
+  const nextRound = {r32:'r16', r16:'qf', qf:'sf', sf:'final'};
+  let cur = rk;
+  while (nextRound[cur]) {
+    const nr = nextRound[cur];
+    D.ko[nr].forEach((m, i) => {
+      const hEl = document.getElementById(`ko-${nr}-${i}-h`);
+      const aEl = document.getElementById(`ko-${nr}-${i}-a`);
+      if (hEl && hEl !== document.activeElement) hEl.value = m.h || '';
+      if (aEl && aEl !== document.activeElement) aEl.value = m.a || '';
+    });
+    cur = nr;
+  }
 }
 
 // ─── BRACKET SEEDING ─────────────────────────────────────────────────────────
@@ -719,16 +773,26 @@ function seedBracket() {
     { h: r('D'), a: r('G') }, // 88: D 2nd vs G 2nd
   ];
 
+  // Only update team names — preserve any scores already entered
   seeding.forEach((s, i) => {
-    D.ko.r32[i] = {h: s.h, a: s.a, hs: '', as: ''};
+    D.ko.r32[i].h = s.h;
+    D.ko.r32[i].a = s.a;
   });
 
+  propagateKO(); // re-derive R16/QF/SF/Final from existing R32 scores
   save();
   buildBracket();
   flash('✓ R32 bracket seeded from group results', false);
 }
 
 // ─── POINTS CALCULATION ───────────────────────────────────────────────────────
+
+// Fuzzy team name match: handles short names vs. full names with parenthetical alternates
+function teamMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return a.includes(b) || b.includes(a);
+}
 
 function teamsInRound(rk) {
   const s = new Set();
@@ -757,14 +821,14 @@ function calcPts(i) {
       const hn = norm(grp.teams[m.h]);
       const an = norm(grp.teams[m.a]);
 
-      if (myTeams.includes(hn)) {
+      if (myTeams.some(t => teamMatch(t, hn))) {
         if (hs > as)      { gp+=3; wins++;  }
         else if (hs===as) { gp+=1; draws++; }
-        if (hs >= 3)           { gp+=1; bigScore++;    } // 3+ goals scored
-        if (as === 0)          { gp+=1; cleanSheets++; } // clean sheet
-        if (hs-as >= 3)        { gp+=2; bigWins++;     } // win by 3+
+        if (hs >= 3)           { gp+=1; bigScore++;    }
+        if (as === 0)          { gp+=1; cleanSheets++; }
+        if (hs-as >= 3)        { gp+=2; bigWins++;     }
       }
-      if (myTeams.includes(an)) {
+      if (myTeams.some(t => teamMatch(t, an))) {
         if (as > hs)      { gp+=3; wins++;  }
         else if (as===hs) { gp+=1; draws++; }
         if (as >= 3)           { gp+=1; bigScore++;    }
@@ -781,17 +845,61 @@ function calcPts(i) {
     notes.push(`Groups ${gp}pts (${bk})`);
   }
 
-  // Knockout rounds — points for reaching each round
+  // Knockout rounds — flat points for reaching each round
   for (const r of ROUNDS) {
     const inRound = teamsInRound(r.key);
     let earned = 0;
-    for (const t of myTeams) if (inRound.has(t)) earned += r.pts;
+    for (const t of myTeams) {
+      if (inRound.has(t)) { earned += r.pts; continue; }
+      for (const bt of inRound) if (teamMatch(t, bt)) { earned += r.pts; break; }
+    }
     if (earned) { kp += earned; notes.push(`${r.label} +${earned}`); }
+  }
+
+  // Knockout per-match scoring — same bonuses as group stage
+  let koMatchKp = 0, koWins = 0, koDraws = 0, koBig = 0, koCS = 0, koWin3 = 0;
+  for (const r of ROUNDS) {
+    for (const m of (D.ko[r.key]||[])) {
+      const hs = String(m.hs ?? ''), as = String(m.as ?? '');
+      if (hs === '' && as === '') continue;
+      const hPen = /[Ee]/.test(hs), aPen = /[Ee]/.test(as);
+      const hg = parseInt(hs) || 0, ag = parseInt(as) || 0;
+      let hw, aw;
+      if      (hPen)   { hw = 'w'; aw = 'l'; }
+      else if (aPen)   { hw = 'l'; aw = 'w'; }
+      else if (hg > ag){ hw = 'w'; aw = 'l'; }
+      else if (ag > hg){ hw = 'l'; aw = 'w'; }
+      else             { hw = 'd'; aw = 'd'; }
+      const hn = norm(m.h), an = norm(m.a);
+
+      if (myTeams.some(t => teamMatch(t, hn))) {
+        if (hw === 'w')      { koMatchKp+=3; koWins++;  }
+        else if (hw === 'd') { koMatchKp+=1; koDraws++; }
+        if (hg >= 3)         { koMatchKp+=1; koBig++;   }
+        if (ag === 0)        { koMatchKp+=1; koCS++;    }
+        if (hg-ag >= 3)      { koMatchKp+=2; koWin3++;  }
+      }
+      if (myTeams.some(t => teamMatch(t, an))) {
+        if (aw === 'w')      { koMatchKp+=3; koWins++;  }
+        else if (aw === 'd') { koMatchKp+=1; koDraws++; }
+        if (ag >= 3)         { koMatchKp+=1; koBig++;   }
+        if (hg === 0)        { koMatchKp+=1; koCS++;    }
+        if (ag-hg >= 3)      { koMatchKp+=2; koWin3++;  }
+      }
+    }
+  }
+  if (koMatchKp > 0) {
+    let bk = `${koWins}W ${koDraws}D`;
+    if (koBig)  bk += ` · ${koBig}×3+goals(+1)`;
+    if (koCS)   bk += ` · ${koCS}×CS(+1)`;
+    if (koWin3) bk += ` · ${koWin3}×+3margin(+2)`;
+    notes.push(`KO matches ${koMatchKp}pts (${bk})`);
+    kp += koMatchKp;
   }
 
   // Champion
   const champ = norm(D.ko.champion);
-  if (champ && myTeams.includes(champ)) { kp += 40; notes.push('Champion +40'); }
+  if (champ && myTeams.some(t => teamMatch(t, champ))) { kp += 40; notes.push('Champion +40'); }
 
   return {total: gp+kp, gp, kp, notes};
 }
