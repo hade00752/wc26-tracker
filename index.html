@@ -287,14 +287,24 @@ const DEFAULT_DATA = {
 let D = JSON.parse(JSON.stringify(DEFAULT_DATA)); // deep clone so defaults are never mutated
 
 async function loadFromServer() {
-  // Edit mode: localStorage first for instant load
+  // Edit mode: localStorage first for instant load, then push to Gist so view link is current
   if (IS_EDIT) {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (raw) { const j = JSON.parse(raw); if (j?.players) { D = j; return; } }
+      if (raw) {
+        const j = JSON.parse(raw);
+        if (j?.players) {
+          D = j;
+          if (EDIT_TOKEN) {
+            // Silently push latest local data to Gist so view link always reflects edit link
+            setTimeout(() => pushToGist(), 1500);
+          }
+          return;
+        }
+      }
     } catch(_){}
   }
-  // Always fetch fresh from Gist — no sessionStorage cache so view links never go stale
+  // View mode or no local data: always fetch fresh from Gist (no cache, never stale)
   try {
     const headers = {'Accept': 'application/vnd.github+json'};
     if (EDIT_TOKEN) headers['Authorization'] = `Bearer ${EDIT_TOKEN}`;
@@ -313,6 +323,22 @@ async function loadFromServer() {
     }
   } catch(_){}
   // Nothing from Gist — keep hardcoded defaults
+}
+
+async function pushToGist() {
+  if (!EDIT_TOKEN) return;
+  try {
+    await fetch(GIST_API, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${EDIT_TOKEN}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({files: {'data.json': {content: JSON.stringify(D)}}}),
+    });
+  } catch(_){}
 }
 
 // Save to localStorage immediately; debounce-sync to Gist so the view link sees updates
@@ -357,7 +383,7 @@ async function syncNow() {
       },
       body: JSON.stringify({files: {'data.json': {content: JSON.stringify(D)}}}),
     });
-    flash(res.ok ? '✓ Synced to cloud' : '⚠ Sync failed — check token', !res.ok);
+    flash(res.ok ? '✓ View link updated' : '⚠ Sync failed — check token', !res.ok);
   } catch(_) { flash('⚠ Sync failed', true); }
   if (btn) { btn.textContent = '↑ Sync cloud'; btn.disabled = false; }
 }
