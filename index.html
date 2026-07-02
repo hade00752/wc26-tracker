@@ -290,18 +290,14 @@ let D = JSON.parse(JSON.stringify(DEFAULT_DATA)); // deep clone so defaults are 
 
 async function loadFromServer() {
   if (BIN_ID === '__BIN_ID__') { showSetupWarning(); return; }
-  // Edit mode: localStorage first (instant, no network)
+  // Edit mode: localStorage first (instant, no network round-trip)
   if (EDIT_TOKEN || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) { const j = JSON.parse(raw); if (j?.players) { D = j; return; } }
     } catch(_){}
   }
-  // View mode (or no localStorage): load from Gist, cache in sessionStorage to avoid rate limits
-  try {
-    const cached = sessionStorage.getItem(SESS_KEY);
-    if (cached) { const j = JSON.parse(cached); if (j?.players) { D = j; return; } }
-  } catch(_){}
+  // Always fetch fresh from Gist — view-mode never uses stale sessionStorage
   try {
     const headers = {'Accept':'application/vnd.github+json'};
     if (EDIT_TOKEN) headers['Authorization'] = `Bearer ${EDIT_TOKEN}`;
@@ -313,14 +309,13 @@ async function loadFromServer() {
         const j = JSON.parse(raw);
         if (j?.players) {
           D = j;
-          try { sessionStorage.setItem(SESS_KEY, raw); } catch(_){}
           try { localStorage.setItem(LS_KEY, raw); } catch(_){}
           return;
         }
       }
     }
   } catch(_){}
-  // Nothing anywhere — keep the hardcoded defaults already in D
+  // Nothing from server — keep hardcoded defaults already in D
 }
 
 function showSetupWarning() {
@@ -998,6 +993,13 @@ loadFromServer().then(() => {
     }
   } else {
     applyViewMode();
+    // Auto-refresh from Gist every 90s so view-only links stay live
+    setInterval(async () => {
+      await loadFromServer();
+      const active = document.querySelector('.tab.on')?.textContent?.trim().toLowerCase() || 'leaderboard';
+      buildAll();
+      go(active);
+    }, 90000);
   }
 });
 </script>
