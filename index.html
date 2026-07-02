@@ -237,16 +237,14 @@ function fresh() {
   };
 }
 
-// ─── CONFIG (set by setup.py) ─────────────────────────────────────────────────
-const BIN_ID = 'f0b7553b1c8aa3465e6a522f9e05cbab'; // set by setup.py
+// ─── CONFIG ────────────────────────────────────────────────────────────────────
+const BIN_ID = 'f0b7553b1c8aa3465e6a522f9e05cbab';
 
 // ─── PERSISTENCE (GitHub Gist) ────────────────────────────────────────────────
-
 const EDIT_TOKEN = new URLSearchParams(location.search).get('token') || '';
 const IS_EDIT    = !!EDIT_TOKEN || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 const GIST_API   = `https://api.github.com/gists/${BIN_ID}`;
 const LS_KEY     = `wc26_${BIN_ID}`;
-const SESS_KEY   = `wc26_sess_${BIN_ID}`;
 
 // ─── DEFAULT DATA (hardcoded so it's always there) ───────────────────────────
 const DEFAULT_DATA = {
@@ -289,17 +287,16 @@ const DEFAULT_DATA = {
 let D = JSON.parse(JSON.stringify(DEFAULT_DATA)); // deep clone so defaults are never mutated
 
 async function loadFromServer() {
-  if (BIN_ID === '__BIN_ID__') { showSetupWarning(); return; }
-  // Edit mode: localStorage first (instant, no network round-trip)
-  if (EDIT_TOKEN || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  // Edit mode: localStorage first for instant load
+  if (IS_EDIT) {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) { const j = JSON.parse(raw); if (j?.players) { D = j; return; } }
     } catch(_){}
   }
-  // Always fetch fresh from Gist — view-mode never uses stale sessionStorage
+  // Always fetch fresh from Gist — no sessionStorage cache so view links never go stale
   try {
-    const headers = {'Accept':'application/vnd.github+json'};
+    const headers = {'Accept': 'application/vnd.github+json'};
     if (EDIT_TOKEN) headers['Authorization'] = `Bearer ${EDIT_TOKEN}`;
     const res = await fetch(GIST_API, {headers});
     if (res.ok) {
@@ -315,30 +312,15 @@ async function loadFromServer() {
       }
     }
   } catch(_){}
-  // Nothing from server — keep hardcoded defaults already in D
+  // Nothing from Gist — keep hardcoded defaults
 }
 
-function showSetupWarning() {
-  // overlay — never touch main's children so buildAll() still works
-  const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;inset:0;background:#060c06;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center';
-  el.innerHTML = `
-    <div style="font-size:2.5rem">⚙️</div>
-    <div style="font-size:1.1rem;font-weight:700;color:#c8a800">App not configured yet</div>
-    <div style="color:#5a8a5a;font-size:.88rem;max-width:340px">
-      Run <code style="background:#0c170c;padding:2px 7px;border-radius:4px;color:#7abe7a">python3 setup.py</code>
-      to connect cloud storage, then redeploy.
-    </div>`;
-  document.body.appendChild(el);
-}
-
-// Save: localStorage immediately (always), then background Gist sync if we have a token
+// Save to localStorage immediately; debounce-sync to Gist so the view link sees updates
 function save() {
-  if (!IS_EDIT) return; // view mode — never mutate data
+  if (!IS_EDIT) return;
   try { localStorage.setItem(LS_KEY, JSON.stringify(D)); } catch(_){}
-  try { sessionStorage.setItem(SESS_KEY, JSON.stringify(D)); } catch(_){}
   flash('✓ Saved', false);
-  if (!EDIT_TOKEN) return; // localhost with no token — localStorage only, no cloud sync
+  if (!EDIT_TOKEN) return;
   clearTimeout(save._cloud);
   save._cloud = setTimeout(async () => {
     const btn = document.getElementById('sync-btn');
@@ -347,12 +329,12 @@ function save() {
       const res = await fetch(GIST_API, {
         method: 'PATCH',
         headers: {
-          'Content-Type':'application/json',
-          'Accept':'application/vnd.github+json',
-          'Authorization':`Bearer ${EDIT_TOKEN}`,
-          'X-GitHub-Api-Version':'2022-11-28',
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${EDIT_TOKEN}`,
+          'X-GitHub-Api-Version': '2022-11-28',
         },
-        body: JSON.stringify({files:{'data.json':{content:JSON.stringify(D)}}}),
+        body: JSON.stringify({files: {'data.json': {content: JSON.stringify(D)}}}),
       });
       if (btn) { btn.textContent = res.ok ? '✓ Synced' : '↑ Sync cloud'; btn.disabled = false; }
     } catch(_) { if (btn) { btn.textContent = '↑ Sync cloud'; btn.disabled = false; } }
@@ -368,15 +350,15 @@ async function syncNow() {
     const res = await fetch(GIST_API, {
       method: 'PATCH',
       headers: {
-        'Content-Type':'application/json',
-        'Accept':'application/vnd.github+json',
-        'Authorization':`Bearer ${EDIT_TOKEN}`,
-        'X-GitHub-Api-Version':'2022-11-28',
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${EDIT_TOKEN}`,
+        'X-GitHub-Api-Version': '2022-11-28',
       },
-      body: JSON.stringify({files:{'data.json':{content:JSON.stringify(D)}}}),
+      body: JSON.stringify({files: {'data.json': {content: JSON.stringify(D)}}}),
     });
-    flash(res.ok ? '✓ Synced to cloud' : '⚠ Cloud unavailable — data saved locally', !res.ok);
-  } catch(_) { flash('✓ Saved locally — no cloud connection', false); }
+    flash(res.ok ? '✓ Synced to cloud' : '⚠ Sync failed — check token', !res.ok);
+  } catch(_) { flash('⚠ Sync failed', true); }
   if (btn) { btn.textContent = '↑ Sync cloud'; btn.disabled = false; }
 }
 
@@ -993,13 +975,6 @@ loadFromServer().then(() => {
     }
   } else {
     applyViewMode();
-    // Auto-refresh from Gist every 90s so view-only links stay live
-    setInterval(async () => {
-      await loadFromServer();
-      const active = document.querySelector('.tab.on')?.textContent?.trim().toLowerCase() || 'leaderboard';
-      buildAll();
-      go(active);
-    }, 90000);
   }
 });
 </script>
