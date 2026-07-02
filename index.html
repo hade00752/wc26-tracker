@@ -176,6 +176,7 @@ body.view-mode .bar{display:none}
   <div class="bar-txt" id="bar-txt"></div>
   <div class="bar-btns" id="bar-btns">
     <button class="btn btn-red" onclick="resetAll()">Reset All</button>
+    <button class="btn" onclick="backupData()" title="Download all data as a JSON file">⬇ Backup</button>
     <button class="btn btn-gold" onclick="go('leaderboard')">🏆 Scores</button>
   </div>
 </div>
@@ -952,6 +953,16 @@ function buildLeaderboard() {
           </div>
         </div>`).join('')}
     </div>`;
+}
+
+// ─── BACKUP ───────────────────────────────────────────────────────────────────
+
+function backupData() {
+  const blob = new Blob([JSON.stringify(D, null, 2)], {type: 'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'wc26-backup.json'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── RESET ────────────────────────────────────────────────────────────────────
