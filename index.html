@@ -241,10 +241,9 @@ function fresh() {
 // ─── CONFIG ────────────────────────────────────────────────────────────────────
 const BIN_ID = 'f0b7553b1c8aa3465e6a522f9e05cbab';
 
-// ─── PERSISTENCE (GitHub Gist) ────────────────────────────────────────────────
+// ─── PERSISTENCE (localStorage + Backup/deploy workflow) ──────────────────────
 const EDIT_TOKEN = new URLSearchParams(location.search).get('token') || '';
 const IS_EDIT    = !!EDIT_TOKEN || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const GIST_API   = `https://api.github.com/gists/${BIN_ID}`;
 const LS_KEY     = `wc26_${BIN_ID}`;
 
 // ─── DEFAULT DATA (hardcoded so it's always there) ───────────────────────────
@@ -286,92 +285,22 @@ const DEFAULT_DATA = {
 };
 
 // Injected by deploy.py — snapshot for view-only mode only. Never used in edit mode.
-const BAKED_DATA = {"players":[{"name":"Haidar","teams":["Argentina","United States","Germany"],"p":{"winner":"Spain","topScorer":"Kane","topAssist":"Lamine Yamal","bestPlayer":"Bruno Fernandes","darkHorse":"Japan","goldenGlove":"Diogo Costa","flopNation":"Brazil","totalGoals":"240"}},{"name":"Wajid","teams":["England","Mexico","Norway"],"p":{"winner":"France","topScorer":"Mbappe","topAssist":"Bruno Fernandes","bestPlayer":"Bruno Fernandes","darkHorse":"Japan","goldenGlove":"Maignan","flopNation":"Brazil","totalGoals":"212"}},{"name":"Shean","teams":["Switzerland","Belgium","Colombia"],"p":{"winner":"Portugal","topScorer":"Mbappe","topAssist":"Bruno Fernandes","bestPlayer":"Mbappe","darkHorse":"Norway","goldenGlove":"Diogo Costa","flopNation":"Brazil","totalGoals":"182"}},{"name":"Ben","teams":["France","Portugal","Croatia"],"p":{"winner":"Spain","topScorer":"Kane","topAssist":"Bruno Fernandes","bestPlayer":"Olise","darkHorse":"DR Congo","goldenGlove":"Pickford","flopNation":"England","totalGoals":"243"}},{"name":"Quinton","teams":["Japan","Morocco","Spain"],"p":{"winner":"France","topScorer":"Kane","topAssist":"Yamal","bestPlayer":"Mbappe","darkHorse":"Morocco","goldenGlove":"Maignan","flopNation":"Portugal","totalGoals":"220"}},{"name":"Callum","teams":["Brazil","Netherlands","Senegal"],"p":{"winner":"France","topScorer":"Kane","topAssist":"Olise","bestPlayer":"Mbappe","darkHorse":"Senegal","goldenGlove":"Unai Simon","flopNation":"Argentina","totalGoals":"248"}}],"groups":{"A":{"teams":["Mexico","South Africa","South Korea","Czech Republic"],"matches":[{"h":0,"a":1,"hs":2,"as":0},{"h":2,"a":3,"hs":2,"as":1},{"h":0,"a":2,"hs":1,"as":0},{"h":1,"a":3,"hs":1,"as":1},{"h":0,"a":3,"hs":3,"as":0},{"h":1,"a":2,"hs":1,"as":0}]},"B":{"teams":["Canada","Bosnia","Qatar","Switzerland"],"matches":[{"h":0,"a":1,"hs":1,"as":1},{"h":2,"a":3,"hs":1,"as":1},{"h":0,"a":2,"hs":6,"as":0},{"h":1,"a":3,"hs":1,"as":4},{"h":0,"a":3,"hs":1,"as":2},{"h":1,"a":2,"hs":3,"as":1}]},"C":{"teams":["Brazil","Morocco","Haiti","Scotland"],"matches":[{"h":0,"a":1,"hs":1,"as":1},{"h":2,"a":3,"hs":0,"as":1},{"h":0,"a":2,"hs":3,"as":0},{"h":1,"a":3,"hs":1,"as":0},{"h":0,"a":3,"hs":3,"as":0},{"h":1,"a":2,"hs":4,"as":2}]},"D":{"teams":["United States","Paraguay","Austrailia","Turkey"],"matches":[{"h":0,"a":1,"hs":4,"as":1},{"h":2,"a":3,"hs":2,"as":0},{"h":0,"a":2,"hs":2,"as":0},{"h":1,"a":3,"hs":1,"as":0},{"h":0,"a":3,"hs":2,"as":3},{"h":1,"a":2,"hs":"","as":""}]},"E":{"teams":["Germany","Curucao","Ivory Coast","Ecuador"],"matches":[{"h":0,"a":1,"hs":7,"as":1},{"h":2,"a":3,"hs":1,"as":0},{"h":0,"a":2,"hs":2,"as":1},{"h":1,"a":3,"hs":0,"as":0},{"h":0,"a":3,"hs":"","as":""},{"h":1,"a":2,"hs":"","as":""}]},"F":{"teams":["Netherlands","Japan","Sweden","Tunisia"],"matches":[{"h":0,"a":1,"hs":2,"as":2},{"h":2,"a":3,"hs":5,"as":1},{"h":0,"a":2,"hs":5,"as":1},{"h":1,"a":3,"hs":4,"as":0},{"h":0,"a":3,"hs":"","as":""},{"h":1,"a":2,"hs":"","as":""}]},"G":{"teams":["Belgium","Egypt","Iran","New Zealand"],"matches":[{"h":0,"a":1,"hs":1,"as":1},{"h":2,"a":3,"hs":2,"as":2},{"h":0,"a":2,"hs":0,"as":0},{"h":1,"a":3,"hs":3,"as":1},{"h":0,"a":3,"hs":"","as":""},{"h":1,"a":2,"hs":"","as":""}]},"H":{"teams":["Spain","Cape Verde","Saudi Arabia","Uruguay"],"matches":[{"h":0,"a":1,"hs":0,"as":0},{"h":2,"a":3,"hs":1,"as":1},{"h":0,"a":2,"hs":4,"as":0},{"h":1,"a":3,"hs":2,"as":2},{"h":0,"a":3,"hs":"","as":""},{"h":1,"a":2,"hs":"","as":""}]},"I":{"teams":["France","Senegal","Iraq","Norway"],"matches":[{"h":0,"a":1,"hs":3,"as":1},{"h":2,"a":3,"hs":1,"as":4},{"h":0,"a":2,"hs":3,"as":0},{"h":1,"a":3,"hs":2,"as":3},{"h":0,"a":3,"hs":"","as":""},{"h":1,"a":2,"hs":"","as":""}]},"J":{"teams":["Argentina","Algeria","Austria","Jordan"],"matches":[{"h":0,"a":1,"hs":3,"as":0},{"h":2,"a":3,"hs":3,"as":1},{"h":0,"a":2,"hs":2,"as":0},{"h":1,"a":3,"hs":2,"as":1},{"h":0,"a":3,"hs":"","as":""},{"h":1,"a":2,"hs":"","as":""}]},"K":{"teams":["Portugal","Congo DR","Uzbekistan","Colombia"],"matches":[{"h":0,"a":1,"hs":1,"as":1},{"h":2,"a":3,"hs":1,"as":3},{"h":0,"a":2,"hs":5,"as":0},{"h":1,"a":3,"hs":0,"as":1},{"h":0,"a":3,"hs":"","as":""},{"h":1,"a":2,"hs":"","as":""}]},"L":{"teams":["England","Croatia","Ghana","Panama"],"matches":[{"h":0,"a":1,"hs":4,"as":2},{"h":2,"a":3,"hs":1,"as":0},{"h":0,"a":2,"hs":0,"as":0},{"h":1,"a":3,"hs":1,"as":0},{"h":0,"a":3,"hs":"","as":""},{"h":1,"a":2,"hs":"","as":""}]}},"ko":{"r32":[{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""}],"r16":[{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""}],"qf":[{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""}],"sf":[{"h":"","a":"","hs":"","as":""},{"h":"","a":"","hs":"","as":""}],"final":[{"h":"","a":"","hs":"","as":""}],"champion":""}};
+const BAKED_DATA = {"players":[{"name":"Callum","teams":["","",""],"p":{"winner":"France","topScorer":"Mbappe","topAssist":"Olise","bestPlayer":"Mbappe","darkHorse":"Senegal","goldenGlove":"Unai Simon","flopNation":"Argentina","totalGoals":"258"}},{"name":"","teams":["","",""],"p":{"winner":"","topScorer":"","topAssist":"","bestPlayer":"","darkHorse":"","goldenGlove":"","flopNation":"","totalGoals":""}},{"name":"","teams":["","",""],"p":{"winner":"","topScorer":"","topAssist":"","bestPlayer":"","darkHorse":"","goldenGlove":"","flopNation":"","totalGoals":""}},{"name":"","teams":["","",""],"p":{"winner":"","topScorer":"","topAssist":"","bestPlayer":"","darkHorse":"","goldenGlove":"","flopNation":"","totalGoals":""}},{"name":"","teams":["","",""],"p":{"winner":"","topScorer":"","topAssist":"","bestPlayer":"","darkHorse":"","goldenGlove":"","flopNation":"","totalGoals":""}},{"name":"","teams":["","",""],"p":{"winner":"","topScorer":"","topAssist":"","bestPlayer":"","darkHorse":"","goldenGlove":"","flopNation":"","totalGoals":""}}],"groups":{"A":{"teams":["Mexico","South Africa","South Korea (Korea Republic)","Czechia (Czech Republic)"],"matches":[{"h":0,"a":1,"hs":"2","as":"0"},{"h":2,"a":3,"hs":"2","as":"1"},{"h":0,"a":2,"hs":"1","as":"0"},{"h":1,"a":3,"hs":"1","as":"1"},{"h":0,"a":3,"hs":"3","as":"0"},{"h":1,"a":2,"hs":"1","as":"0"}]},"B":{"teams":["Canada","Switzerland","Qatar","Bosnia & Herzegovina"],"matches":[{"h":0,"a":1,"hs":"1","as":"2"},{"h":2,"a":3,"hs":"1","as":"3"},{"h":0,"a":2,"hs":"6","as":"0"},{"h":1,"a":3,"hs":"4","as":"1"},{"h":0,"a":3,"hs":"1","as":"1"},{"h":1,"a":2,"hs":"1","as":"1"}]},"C":{"teams":["Brazil","Morocco","Haiti","Scotland"],"matches":[{"h":0,"a":1,"hs":"1","as":"1"},{"h":2,"a":3,"hs":"0","as":"1"},{"h":0,"a":2,"hs":"3","as":"0"},{"h":1,"a":3,"hs":"1","as":"0"},{"h":0,"a":3,"hs":"3","as":"0"},{"h":1,"a":2,"hs":"4","as":"2"}]},"D":{"teams":["United States","Paraguay","Australia","T\u00fcrkiye (Turkey)"],"matches":[{"h":0,"a":1,"hs":"4","as":"1"},{"h":2,"a":3,"hs":"2","as":"0"},{"h":0,"a":2,"hs":"2","as":"0"},{"h":1,"a":3,"hs":"1","as":"0"},{"h":0,"a":3,"hs":"2","as":"3"},{"h":1,"a":2,"hs":"0","as":"0"}]},"E":{"teams":["Germany","Cura\u00e7ao","Ivory Coast (C\u00f4te d'Ivoire)","Ecuador"],"matches":[{"h":0,"a":1,"hs":"7","as":"1"},{"h":2,"a":3,"hs":"1","as":"0"},{"h":0,"a":2,"hs":"2","as":"1"},{"h":1,"a":3,"hs":"0","as":"0"},{"h":0,"a":3,"hs":"1","as":"2"},{"h":1,"a":2,"hs":"0","as":"2"}]},"F":{"teams":["Netherlands","Japan","Tunisia","Sweden"],"matches":[{"h":0,"a":1,"hs":"2","as":"2"},{"h":2,"a":3,"hs":"1","as":"5"},{"h":0,"a":2,"hs":"3","as":"1"},{"h":1,"a":3,"hs":"1","as":"1"},{"h":0,"a":3,"hs":"5","as":"1"},{"h":1,"a":2,"hs":"4","as":"0"}]},"G":{"teams":["Belgium","Egypt","Iran (IR Iran)","New Zealand"],"matches":[{"h":0,"a":1,"hs":"1","as":"1"},{"h":2,"a":3,"hs":"2","as":"2"},{"h":0,"a":2,"hs":"0","as":"0"},{"h":1,"a":3,"hs":"3","as":"1"},{"h":0,"a":3,"hs":"5","as":"1"},{"h":1,"a":2,"hs":"1","as":"1"}]},"H":{"teams":["Spain","Cape Verde (Cabo Verde)","Saudi Arabia","Uruguay"],"matches":[{"h":0,"a":1,"hs":"0","as":"0"},{"h":2,"a":3,"hs":"1","as":"1"},{"h":0,"a":2,"hs":"4","as":"0"},{"h":1,"a":3,"hs":"2","as":"2"},{"h":0,"a":3,"hs":"1","as":"0"},{"h":1,"a":2,"hs":"0","as":"0"}]},"I":{"teams":["France","Senegal","Norway","Iraq"],"matches":[{"h":0,"a":1,"hs":"3","as":"1"},{"h":2,"a":3,"hs":"4","as":"1"},{"h":0,"a":2,"hs":"4","as":"1"},{"h":1,"a":3,"hs":"5","as":"0"},{"h":0,"a":3,"hs":"3","as":"0"},{"h":1,"a":2,"hs":"2","as":"3"}]},"J":{"teams":["Argentina","Algeria","Austria","Jordan"],"matches":[{"h":0,"a":1,"hs":"3","as":"0"},{"h":2,"a":3,"hs":"3","as":"1"},{"h":0,"a":2,"hs":"2","as":"0"},{"h":1,"a":3,"hs":"2","as":"1"},{"h":0,"a":3,"hs":"3","as":"1"},{"h":1,"a":2,"hs":"3","as":"3"}]},"K":{"teams":["Portugal","Uzbekistan","Colombia","DR Congo (Congo DR)"],"matches":[{"h":0,"a":1,"hs":"5","as":"0"},{"h":2,"a":3,"hs":"1","as":"0"},{"h":0,"a":2,"hs":"0","as":"0"},{"h":1,"a":3,"hs":"1","as":"3"},{"h":0,"a":3,"hs":"1","as":"1"},{"h":1,"a":2,"hs":"1","as":"3"}]},"L":{"teams":["England","Croatia","Ghana","Panama"],"matches":[{"h":0,"a":1,"hs":"4","as":"2"},{"h":2,"a":3,"hs":"1","as":"0"},{"h":0,"a":2,"hs":"0","as":"0"},{"h":1,"a":3,"hs":"1","as":"0"},{"h":0,"a":3,"hs":"2","as":"0"},{"h":1,"a":2,"hs":"2","as":"1"}]}},"ko":{"r32":[{"h":"South Africa","a":"Canada","hs":"0","as":"1"},{"h":"Netherlands","a":"Morocco","hs":"1","as":"1E"},{"h":"Germany","a":"Paraguay","hs":"1","as":"1E"},{"h":"France","a":"Sweden","hs":"3","as":"0"},{"h":"Brazil","a":"Japan","hs":"2","as":"1"},{"h":"Ivory Coast","a":"Norway","hs":"1","as":"2"},{"h":"Mexico","a":"Ecuador","hs":"2","as":"0"},{"h":"England","a":"DR Congo","hs":"2","as":"1"},{"h":"Portugal","a":"Croatia","hs":"2","as":"1"},{"h":"Spain","a":"Austria","hs":"3","as":"0"},{"h":"United States","a":"Bosnia & Herzegovina","hs":"2","as":"0"},{"h":"Belgium","a":"Senegal","hs":"3","as":"2"},{"h":"Argentina","a":"Cabo Verde","hs":"3","as":"2"},{"h":"Australia","a":"Egypt","hs":"1","as":"1E"},{"h":"Switzerland","a":"Algeria","hs":"2","as":"0"},{"h":"Colombia","a":"Ghana","hs":"1","as":"0"}],"r16":[{"h":"Canada","a":"Morocco","hs":"0","as":"3"},{"h":"Paraguay","a":"France","hs":"0","as":"1"},{"h":"Brazil","a":"Norway","hs":"1","as":"2"},{"h":"Mexico","a":"England","hs":"2","as":"3"},{"h":"Portugal","a":"Spain","hs":"0","as":"1"},{"h":"United States","a":"Belgium","hs":"1","as":"4"},{"h":"Argentina","a":"Egypt","hs":"3","as":"2"},{"h":"Switzerland","a":"Colombia","hs":"0E","as":"0"}],"qf":[{"h":"Morocco","a":"France","hs":"0","as":"2"},{"h":"Norway","a":"England","hs":"1","as":"2"},{"h":"Spain","a":"Belgium","hs":"2","as":"1"},{"h":"Argentina","a":"Switzerland","hs":"3","as":"1"}],"sf":[{"h":"France","a":"Spain","hs":"","as":""},{"h":"England","a":"Argentina","hs":"","as":""}],"final":[{"h":"","a":"","hs":"","as":""}],"champion":""}};
 
 let D = JSON.parse(JSON.stringify(DEFAULT_DATA));
 
 async function loadFromServer() {
-  // localStorage is the primary store — always try it first
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const j = JSON.parse(raw);
-      if (j?.players) { D = j; return; }
-    }
+    if (raw) { const j = JSON.parse(raw); if (j?.players) { D = j; return; } }
   } catch(_){}
-
-  // Nothing in localStorage — try Gist as fallback (first visit / new device)
-  if (EDIT_TOKEN) {
-    try {
-      const res = await fetch(GIST_API, {
-        headers: {'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${EDIT_TOKEN}`},
-      });
-      if (res.ok) {
-        const gist = await res.json();
-        const raw  = gist.files?.['data.json']?.content;
-        if (raw) {
-          const j = JSON.parse(raw);
-          if (j?.players) {
-            D = j;
-            try { localStorage.setItem(LS_KEY, JSON.stringify(D)); } catch(_){}
-            return;
-          }
-        }
-      }
-    } catch(_){}
-  }
-
-  // View-only mode fallback: use baked snapshot (no API calls needed)
-  if (!IS_EDIT && BAKED_DATA?.players) {
-    D = JSON.parse(JSON.stringify(BAKED_DATA));
-  }
+  if (!IS_EDIT && BAKED_DATA?.players) D = JSON.parse(JSON.stringify(BAKED_DATA));
 }
 
-// localStorage first (immediate, reliable); Gist is optional cloud backup
 function save() {
   if (!IS_EDIT) return;
   try { localStorage.setItem(LS_KEY, JSON.stringify(D)); } catch(_){}
   flash('✓ Saved', false);
-  if (!EDIT_TOKEN) return;
-  clearTimeout(save._t);
-  save._t = setTimeout(async () => {
-    const btn = document.getElementById('sync-btn');
-    if (btn) { btn.textContent = '↑ Syncing…'; btn.disabled = true; }
-    try {
-      const res = await fetch(GIST_API, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/vnd.github+json',
-          'Authorization': `Bearer ${EDIT_TOKEN}`,
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-        body: JSON.stringify({files: {'data.json': {content: JSON.stringify(D)}}}),
-      });
-      if (btn) { btn.textContent = res.ok ? '✓ Synced' : '↑ Sync cloud'; btn.disabled = false; }
-    } catch(_) { if (btn) { btn.textContent = '↑ Sync cloud'; btn.disabled = false; } }
-    setTimeout(() => { if (btn && btn.textContent === '✓ Synced') btn.textContent = '↑ Sync cloud'; }, 3000);
-  }, 1500);
-}
-
-async function syncNow() {
-  if (!IS_EDIT) return;
-  const btn = document.getElementById('sync-btn');
-  if (btn) { btn.textContent = '↑ Syncing…'; btn.disabled = true; }
-  try {
-    const res = await fetch(GIST_API, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/vnd.github+json',
-        'Authorization': `Bearer ${EDIT_TOKEN}`,
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-      body: JSON.stringify({files: {'data.json': {content: JSON.stringify(D)}}}),
-    });
-    flash(res.ok ? '✓ Synced' : '⚠ Sync failed — check token', !res.ok);
-  } catch(_) { flash('⚠ Sync failed', true); }
-  if (btn) { btn.textContent = '↑ Sync cloud'; btn.disabled = false; }
 }
 
 function flash(msg, err) {
@@ -986,19 +915,7 @@ function buildAll() {
 
 loadFromServer().then(() => {
   buildAll();
-  if (IS_EDIT) {
-    const btns = document.getElementById('bar-btns');
-    if (btns) {
-      const syncBtn = document.createElement('button');
-      syncBtn.id = 'sync-btn';
-      syncBtn.className = 'btn';
-      syncBtn.textContent = '↑ Sync cloud';
-      syncBtn.onclick = syncNow;
-      btns.insertBefore(syncBtn, btns.firstChild);
-    }
-  } else {
-    applyViewMode();
-  }
+  if (!IS_EDIT) applyViewMode();
 });
 </script>
 </body>
