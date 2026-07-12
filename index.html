@@ -644,7 +644,7 @@ function getKOWinner(m) {
   return null;
 }
 
-// Derive all subsequent rounds from current scores, in-place on D.ko.
+// Derive subsequent rounds from scores. Never overwrites a slot that already has a team name.
 function propagateKO() {
   const chain = [
     {from:'r32', to:'r16'},
@@ -657,10 +657,11 @@ function propagateKO() {
     const dst = D.ko[to];
     for (let i = 0; i < src.length; i++) {
       const w = getKOWinner(src[i]);
-      const team = w === 'h' ? src[i].h : w === 'a' ? src[i].a : '';
+      if (!w) continue; // no result yet — leave destination alone
+      const team = w === 'h' ? src[i].h : src[i].a;
       const dstIdx = Math.floor(i / 2);
       const slot   = i % 2 === 0 ? 'h' : 'a';
-      dst[dstIdx][slot] = team;
+      if (!dst[dstIdx][slot]) dst[dstIdx][slot] = team; // manual entries always win
     }
   }
 }
